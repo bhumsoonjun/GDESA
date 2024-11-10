@@ -4,7 +4,7 @@ from base_gdesa import BaseGDESA
 import numpy as np
 from typing import *
 import math
-
+from utils import *
 
 class MGDESA(BaseGDESA):
 
@@ -55,68 +55,69 @@ class MGDESA(BaseGDESA):
         super().setup(**kwargs)
         self.elitism_amount = int(self.popsize * self.elitism_ratio)
 
-    def optimize(self, **kwargs):
-        self.setup(**kwargs)
+    def pre_process(self, gen: int):
+        if self.p_cnt < len(self.TL) and gen >= self.max_gen * self.TL[self.p_cnt][2]:
+            self.T = self.TL[self.p_cnt][0]
+            self.elitism_amount = int(self.popsize * self.TL[self.p_cnt][1])
+            indices = np.arange(self.popsize)
+            np.random.shuffle(indices)
 
-        for i in range(1, self.max_gen + 1):
+            self.population = self.population[indices]
+            self.population_fitness = self.population_fitness[indices]
+            best = np.argmin(self.population_fitness)
 
-            if self.p_cnt < len(self.TL) and i >= self.max_gen * self.TL[self.p_cnt][2]:
-                self.T = self.TL[self.p_cnt][0]
-                self.elitism_amount = int(self.popsize * self.TL[self.p_cnt][1])
-                indices = np.arange(self.popsize)
-                np.random.shuffle(indices)
-                self.population = self.population[indices]
-                self.population_fitness = self.population_fitness[indices]
+            self.population[0], self.population[best] = (
+                self.population[best],
+                self.population[0],
+            )
+            self.population_fitness[0], self.population_fitness[best] = (
+                self.population_fitness[best],
+                self.population_fitness[0],
+            )
+            self.p_cnt += 1
 
-                best = np.argmin(self.population_fitness)
-                self.population[0], self.population[best] = (
-                    self.population[best],
-                    self.population[0],
+        if gen % self.beta == 0:
+            self.T = self.alpha * self.T
+
+    def post_process(self, gen: int):
+        pass
+
+    def step(self, gen: int):
+
+        for j in range(self.popsize):
+            target_vector = self.population[j]
+            if (
+                self.gradient_prob > 0
+                and np.random.rand() < self.gradient_prob / self.popsize
+                and self.cooldown_list[j] <= gen
+            ):
+                trial_vector, trial_val = self.apply_gradient(target_vector)
+                self.cooldown_list[j] = math.ceil(1 / self.gradient_prob) + gen
+            else:
+                mutant_vector = dual_mutation(self.population, self.mutation_factor, j)
+                trial_vector = binomial_crossover(target_vector, mutant_vector, self.crossover_prob)
+                trial_vector = check_bounds(trial_vector, self.bounds)
+                trial_val = self.func_wrapper(trial_vector)
+
+            delta = trial_val - self.population_fitness[j]
+
+            if delta < 0:
+                self.population[j] = trial_vector
+                self.population_fitness[j] = trial_val
+            elif (
+                self.T > 0
+                and j >= self.elitism_amount
+                and (
+                    delta / self.T < 10e-10
+                    or np.random.rand() < np.exp(-delta / self.T)
                 )
-                self.population_fitness[0], self.population_fitness[best] = (
-                    self.population_fitness[best],
-                    self.population_fitness[0],
+            ):
+                self.population[j] = trial_vector
+                self.population_fitness[j] = trial_val
+                self.cooldown_list[j] = (
+                    math.ceil(1 / self.gradient_prob) + gen
+                    if self.gradient_prob > 0
+                    else 0
                 )
-
-                self.p_cnt += 1
-
-            if i % self.beta == 0:
-                self.T = self.alpha * self.T
-
-            for j in range(self.popsize):
-                target_vector = self.population[j]
-                if (
-                    self.gradient_prob > 0
-                    and np.random.rand() < self.gradient_prob / self.popsize
-                    and self.cooldown_list[j] <= i
-                ):
-                    trial_vector, trial_val = self.apply_gradient(target_vector)
-                    self.cooldown_list[j] = math.ceil(1 / self.gradient_prob) + i
-                else:
-                    mutant_vector = self.dual_mutation(j)
-                    trial_vector = self.binomial_crossover(target_vector, mutant_vector)
-                    trial_vector = self.check_bounds(trial_vector)
-                    trial_val = self.func_wrapper(trial_vector)
-
-                delta = trial_val - self.population_fitness[j]
-
-                if delta < 0:
-                    self.population[j] = trial_vector
-                    self.population_fitness[j] = trial_val
-                elif (
-                    self.T > 0
-                    and j >= self.elitism_amount
-                    and (
-                        delta / self.T < 10e-10
-                        or np.random.rand() < np.exp(-delta / self.T)
-                    )
-                ):
-                    self.population[j] = trial_vector
-                    self.population_fitness[j] = trial_val
-                    self.cooldown_list[j] = (
-                        math.ceil(1 / self.gradient_prob) + i
-                        if self.gradient_prob > 0
-                        else 0
-                    )
 
         return self.best_solution, self.best_fitness

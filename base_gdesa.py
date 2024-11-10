@@ -62,8 +62,24 @@ class BaseGDESA(ABC):
                 raise ValueError(f"Parameter: {key} not found in given parameters")
 
     @abstractmethod
-    def optimize(self, **kwargs):
+    def pre_process(self, gen: int):
         pass
+
+    @abstractmethod
+    def post_process(self, gen: int):
+        pass
+
+    @abstractmethod
+    def step(self, gen: int):
+        pass
+
+    def optimize(self, **kwargs):
+        self.setup(**kwargs)
+        for i in range(1, self.max_gen + 1):
+            self.pre_process(i)
+            self.step(i)
+            self.post_process(i)
+        return self.best_solution, self.best_fitness
 
     @abstractmethod
     def get_default_parameters(self):
