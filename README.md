@@ -10,3 +10,7 @@ These files contain the implementation of each algorithm.
 
 # Examples
 Example usages can be found in Main.py
+
+# To Cite Us
+
+B. Soonjun and T. Krityakierne, "GDESA: Gradient Differential Evolution-Simulated Annealing Hybrid," in IEEE Access, doi: 10.1109/ACCESS.2024.3493429.
