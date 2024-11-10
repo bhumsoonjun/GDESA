@@ -1,6 +1,6 @@
 # About the repository
 
-This repository contains the code of GDESA, MGDESA, and AGDESA.
+This repository contains the implementation of GDESA, MGDESA, and AGDESA in this paper: https://www.doi.org/10.1109/ACCESS.2024.3493429.
 
 ## BaseGDESA.py
 BaseGDESA is an abstract class that acts as a template containing useful utility functions shared by the three algorithms.
